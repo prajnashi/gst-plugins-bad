@@ -39,6 +39,9 @@
 
 #include "gstfbdevsink.h"
 
+GST_DEBUG_CATEGORY (gst_fbdevsink_debug);
+#define GST_CAT_DEFAULT gst_fbdevsink_debug
+
 /* elementfactory information */
 static const GstElementDetails gst_fbdevsink_details =
 GST_ELEMENT_DETAILS ("fbdev video sink",
@@ -217,6 +220,7 @@ gst_fbdevsink_setcaps (GstBaseSink * bsink, GstCaps * vscapslist)
   gst_structure_get_int (structure, "width", &fbdevsink->width);
   gst_structure_get_int (structure, "height", &fbdevsink->height);
 
+  GST_DEBUG_OBJECT (fbdevsink, "framerate=%d/%d, width=%d,height=%d\n", fbdevsink->fps_n, fbdevsink->fps_d, fbdevsink->width, fbdevsink->height);
   /* calculate centering and scanlengths for the video */
   fbdevsink->bytespp = fbdevsink->fixinfo.line_length / fbdevsink->varinfo.xres;
 
@@ -236,6 +240,7 @@ gst_fbdevsink_setcaps (GstBaseSink * bsink, GstCaps * vscapslist)
   if (fbdevsink->lines > fbdevsink->varinfo.yres)
     fbdevsink->lines = fbdevsink->varinfo.yres;
 
+  GST_DEBUG_OBJECT (fbdevsink, "gst_fbdevsink_setcaps return true");
   return TRUE;
 }
 
@@ -260,6 +265,7 @@ gst_fbdevsink_render (GstBaseSink * bsink, GstBuffer * buf)
         GST_BUFFER_DATA (buf) + i * fbdevsink->width * fbdevsink->bytespp,
         fbdevsink->linelen);
 
+  GST_DEBUG_OBJECT (fbdevsink, "gst_fbdevsink_render return GST_FLOW_OK");
   return GST_FLOW_OK;
 }
 
@@ -277,22 +283,35 @@ gst_fbdevsink_start (GstBaseSink * bsink)
   fbdevsink->fd = open (fbdevsink->device, O_RDWR);
 
   if (fbdevsink->fd == -1)
+  {
+    GST_DEBUG_OBJECT (fbdevsink, "open /dev/graphics/fb0 fail");
     return FALSE;
+  }
 
   /* get the fixed screen info */
   if (ioctl (fbdevsink->fd, FBIOGET_FSCREENINFO, &fbdevsink->fixinfo))
+  {
+    GST_DEBUG_OBJECT (fbdevsink, "get the fixed screen info fail");
     return FALSE;
+  }
 
   /* get the variable screen info */
   if (ioctl (fbdevsink->fd, FBIOGET_VSCREENINFO, &fbdevsink->varinfo))
+  {
+    GST_DEBUG_OBJECT (fbdevsink, "get the variable screen info fail");
     return FALSE;
+  }
 
   /* map the framebuffer */
   fbdevsink->framebuffer = mmap (0, fbdevsink->fixinfo.smem_len,
       PROT_WRITE, MAP_SHARED, fbdevsink->fd, 0);
   if (fbdevsink->framebuffer == MAP_FAILED)
+  {
+    GST_DEBUG_OBJECT (fbdevsink, "map the framebuffer fail");
     return FALSE;
+  }
 
+  GST_DEBUG_OBJECT (fbdevsink, "gst_fbdevsink_start return TRUE");
   return TRUE;
 }
 
@@ -374,6 +393,9 @@ gst_fbdevsink_change_state (GstElement * element, GstStateChange transition)
 static gboolean
 plugin_init (GstPlugin * plugin)
 {
+  GST_DEBUG_CATEGORY_INIT (gst_fbdevsink_debug, "fbdevsink",
+      0, "Video sink plugin");
+
   if (!gst_element_register (plugin, "fbdevsink", GST_RANK_NONE,
           GST_TYPE_FBDEVSINK))
     return FALSE;

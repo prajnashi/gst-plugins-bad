@@ -277,7 +277,12 @@ gst_fbdevsink_start (GstBaseSink * bsink)
   fbdevsink = GST_FBDEVSINK (bsink);
 
   if (!fbdevsink->device) {
+#ifdef BUILD_WITH_ANDROID
+    /* Use anroid specific device point */
+    fbdevsink->device = g_strdup ("/dev/graphics/fb0");
+#else
     fbdevsink->device = g_strdup ("/dev/fb0");
+#endif /* BUILD_WITH_ANDROID */
   }
 
   fbdevsink->fd = open (fbdevsink->device, O_RDWR);
